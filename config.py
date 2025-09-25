@@ -1,5 +1,5 @@
 class BaseConfig:
-    SIMULATION_STEPS = 10000  # DQNの学習には多くのステップが必要
+    SIMULATION_STEPS = 20000  # DQNの学習には多くのステップが必要
     PACKET_SIZE_RANGE = (10, 50)
     PACKET_TTL_RANGE = (5, 20)
 
@@ -39,6 +39,8 @@ class DqnTrainConfig(BaseConfig):
     BUFFER_BYTE_LIMIT = 1000    # こちらは参考値とする
 
     # --- DQN Hyperparameters ---
+    HIDDEN_LAYER_SIZES = [128, 128] # 中間層のノード数をリストで指定
+    REPLAY_BUFFER_CAPACITY = 10000  # リプレイバッファの容量
     GAMMA = 0.99                # 割引率
     EPSILON_START = 0.9         # εの初期値
     EPSILON_END = 0.05          # εの最終値
@@ -46,3 +48,4 @@ class DqnTrainConfig(BaseConfig):
     LEARNING_RATE = 1e-4        # 学習率
     BATCH_SIZE = 128            # バッチサイズ
     TARGET_UPDATE_FREQUENCY = 15 # ターゲットネットワークの更新頻度 (ステップ数)
+

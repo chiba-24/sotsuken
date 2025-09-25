@@ -2,28 +2,37 @@ import torch
 import numpy as np
 
 from config import DqnTrainConfig, ConfigA
-from simulation_env import NodeEnv
+from simulation_env import Node
 from dqn_agent import DqnAgent
 
-def evaluate_agent(agent, env, eval_steps=10000):
-    """学習済みエージェントの性能を評価する"""
+def evaluate_agent(agent, env, eval_steps = 10000):
+    """学習済みエージェントの性能を評価"""
     print("\n--- エージェントの性能評価開始 ---")
     
+    # カウンタの初期化
     total_generated = 0
     total_transmitted = 0
     total_expired = 0
     
+    # シミュレーション環境の初期化
     state = env.reset()
     
     for _ in range(eval_steps):
         # 評価時はε-greedyを使わず、最適な行動のみを選択
         with torch.no_grad():
             state_tensor = torch.tensor(state, device="cpu", dtype=torch.float32).unsqueeze(0)
+
+            # agent.policy_net(state_tensor)：Qネットワークに現在の状態を入力し各行動のQ値を予測
             action = agent.policy_net(state_tensor).max(1)[1].item()
-            
+
+        # 決定した最善の行動actionを環境に渡し、1ステップ進行
+        # next_state（次の状態）と、そのステップでの統計情報stats（転送数など）を受け取る
+        # 報酬_や終了フラグ_は評価では使わないため、アンダースコアで受け取って無視
         next_state, _, _, stats = env.step(action)
+        # 次のループに備えて、現在の状態を更新
         state = next_state
         
+        # env.stepから返されたそのステップの統計情報（stats辞書）を、全体のカウンタ変数に加算
         total_generated += stats["generated"]
         total_transmitted += stats["transmitted"]
         total_expired += stats["expired"]
@@ -41,7 +50,7 @@ def evaluate_agent(agent, env, eval_steps=10000):
 def train_dqn():
     """DQNの学習を実行するメインループ"""
     config = DqnTrainConfig()
-    env = NodeEnv(config)
+    env = Node(config)
     
     # 状態と行動の次元数を設定から取得
     state_size = config.BUFFER_PACKET_LIMIT * 2 # TTLとサイズの2つの特徴量
@@ -85,7 +94,7 @@ def train_dqn():
     print("--- 学習終了 ---")
 
     # 学習が終わったら評価関数を呼び出す
-    evaluate_agent(agent, NodeEnv(ConfigA()))
+    evaluate_agent(agent, Node(ConfigA()))
 
 
 if __name__ == "__main__":

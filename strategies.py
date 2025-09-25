@@ -14,3 +14,4 @@ class FifoStrategy:
             return None
         # バッファの先頭にあるパケット（最も古くからあるもの）を返す
         return buffer[0]
+    
