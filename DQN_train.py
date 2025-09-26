@@ -66,23 +66,26 @@ def train_dqn():
     state = env.reset()
     
     for step in range(1, config.SIMULATION_STEPS + 1):
-        # 1. エージェントが行動を選択
+        # 1. 時間を1ステップ進める (現在のステップ数を渡す)
+        expired_reward, _ = env.update_time(current_step=step)
+
+        # 2. エージェントが行動を選択
         action_tensor = agent.select_action(state)
         action = action_tensor.item()
         
-        # 2. 環境が1ステップ進む
+        # 3. 環境が1ステップ進む
         next_state, reward, done, _ = env.step(action)
         reward_tensor = torch.tensor([reward], device="cpu")
         
-        # 3. 経験をリプレイバッファに保存
+        # 4. 経験をリプレイバッファに保存
         agent.buffer.push(state, action_tensor, reward_tensor, next_state)
         
         state = next_state
         
-        # 4. エージェントの学習
+        # 5. エージェントの学習
         agent.learn()
         
-        # 5. ターゲットネットワークの更新
+        # 6. ターゲットネットワークの更新
         if step % config.TARGET_UPDATE_FREQUENCY == 0:
             agent.target_net.load_state_dict(agent.policy_net.state_dict())
             

@@ -12,24 +12,52 @@ def run_simulation(config, strategy_class, title_prefix):
 
     print(f"--- {title} ---")
     env.reset()
-    for _ in range(config.SIMULATION_STEPS):
-        # 1. 従来手法の戦略で転送すべきパケットを選択
-        packet_to_send = strategy.select_packet(env.buffer)
+
+    # 外側ループ：時間を進行
+    for step in range(config.SIMULATION_STEPS):
+        # 1. 時間を1ステップ進め，その間の統計を取得．
+        _, time_stats = env.update_time(current_step = step)
+
+        # 全体の統計に加算
+        for key in ["generated", "expired", "dropped"]:
+            stats[key] += time_stats[key]
+
+        # 内側ループ：帯域幅が尽きるまでパケットを転送
+        while env.remaining_bandwidth > 0 and env.buffer:
+            # 戦略に行動を選択させる
+            packet_to_send = strategy.select_packet(env.buffer)
+            action = None
+            if packet_to_send:
+                try:
+                    action = list(env.buffer).index(packet_to_send)
+                except ValueError:
+                    action = None
+            
+            # 転送を試みる
+            _, transmitted_count, success = env.transmit_packet(action)
+            stats["transmitted"] += transmitted_count
+            
+            # 転送に失敗した（送れるものがない）ら内側ループを抜ける
+            if not success:
+                break
+
+        # # 2. 従来手法の戦略で転送すべきパケットを選択
+        # packet_to_send = strategy.select_packet(env.buffer)
         
-        # 2. 選択したパケットのインデックスを取得してactionとする
-        action = None
-        if packet_to_send:
-            try:
-                action = list(env.buffer).index(packet_to_send)
-            except ValueError:
-                action = None # すでにTTL切れなどで消えた場合
+        # # 3. 選択したパケットのインデックスを取得してactionとする
+        # action = None
+        # if packet_to_send:
+        #     try:
+        #         action = list(env.buffer).index(packet_to_send)
+        #     except ValueError:
+        #         action = None # すでにTTL切れなどで消えた場合
         
-        # 3. 環境を1ステップ進める
-        _, _, _, step_stats = env.step(action)
+        # # 4. 環境を1ステップ進める
+        # _, _, _, step_stats = env.step(action)
         
-        # 4. 統計を更新
-        for key in stats:
-            stats[key] += step_stats[key]
+        # # 5. 統計を更新
+        # for key in stats:
+        #     stats[key] += step_stats[key]
 
     print(f"総生成データ数: {stats['generated']}")
     print(f"総転送成功データ数: {stats['transmitted']}")

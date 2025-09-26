@@ -29,6 +29,8 @@ class Node:
         self.buffer = deque()
         # 新規パケットにIDを割り振るためのカウンタを初期化
         self.packet_id_counter = 0
+        # 帯域幅の中心
+        self.remaining_bandwidth = self.config.BANDWIDTH_CENTER
 
     """ 現在のバッファの状態をNNが理解できる固定長の数値リストに変換 """
     def _get_state(self):
@@ -52,20 +54,32 @@ class Node:
         self.buffer.clear()
         # パケットのIDカウンタを初期化
         self.packet_id_counter = 0
+        # 帯域幅の中心
+        self.remaining_bandwidth = self.config.BANDWIDTH_CENTER
         # バッファリストをNNが読み込める数値リストに変換
         return self._get_state()
 
     """ エージェントから行動を受け取り，時間が1ステップ進んだ時の環境の変化を計算 """
-    def step(self, action):
-        # 生存ペナルティとして，行動するたびに報酬を減少．
-        reward = -1
+    def update_time(self, current_step):
+        # # 生存ペナルティとして，行動するたびに報酬を減少．
+        # reward = -1
         # 各カウンタを初期化
         generated_count = 0
-        transmitted_count = 0
+        # transmitted_count = 0
         expired_count = 0
         dropped_count = 0
+        expired_reward = 0
+        
+        # 1．帯域幅をサイン波に基づいて周期的に設定
+        center = self.config.BANDWIDTH_CENTER
+        amplitude = self.config.BANDWIDTH_AMPLITUDE
+        period = self.config.BANDWIDTH_PERIOD
+        # サイン波の計算 (-1.0 ~ 1.0 の値を生成)
+        oscillation = math.sin(2 * math.pi * current_step / period)
+        # 最終的な帯域幅を計算
+        self.remaining_bandwidth = int(center + amplitude * oscillation)
 
-        # 1. 新規パケットの到来．
+        # 2. 新規パケットの到来．
         # 0~最大数の間でランダムに決定．
         num_new_packets = random.randint(0, self.config.MAX_PACKETS_PER_STEP)
         # ランダムなサイズとTTLを持つ新規パケットを生成．IDと生成カウンタを1加算．
@@ -82,7 +96,7 @@ class Node:
             else:
                 dropped_count += 1
         
-        # 2. TTLの減少と期限切れの確認
+        # 3. TTLの減少と期限切れの確認
         for packet in list(self.buffer):
             # TTLを減少
             packet.ttl -= 1
@@ -91,38 +105,37 @@ class Node:
                 self.buffer.remove(packet)
                 expired_count += 1
         # パケット損失数に応じて，報酬を大きく減少．
-        reward -= expired_count * 100
+        expired_reward -= expired_count * 100
 
-        # 3. 指定されたactionを処理
-        # エージェントが選択した行動（転送したいパケットのインデックス）が，
-        # 現在のバッファリストに存在するか確認．
-        if action is not None and 0 <= action < len(self.buffer):
-            # 指定されたパケットを取り出す．
-            packet_to_send = self.buffer[action]
-            # 転送したいパケットのサイズが，ノードの転送能力以下であるかを確認．
-            if packet_to_send.size <= self.config.NODE_BANDWIDTH:
-                # 転送可能ならパケットをバッファから削除．
-                self.buffer.remove(packet_to_send)
-                # 正の報酬を獲得．
-                reward += 10
-                # 転送成功カウンタを1加算．
-                transmitted_count = 1
-            else:
-                # 帯域幅よりも大きいパケットを送ろうとした場合には負の報酬を獲得．
-                reward -= 5
-        elif action is not None:
-             reward -= 20 # 無効なアクションに対する報酬．
+        # # 3. 指定されたactionを処理
+        # # エージェントが選択した行動（転送したいパケットのインデックス）が，
+        # # 現在のバッファリストに存在するか確認．
+        # if action is not None and 0 <= action < len(self.buffer):
+        #     # 指定されたパケットを取り出す．
+        #     packet_to_send = self.buffer[action]
+        #     # 転送したいパケットのサイズが，ノードの転送能力以下であるかを確認．
+        #     if packet_to_send.size <= self.config.NODE_BANDWIDTH:
+        #         # 転送可能ならパケットをバッファから削除．
+        #         self.buffer.remove(packet_to_send)
+        #         # 正の報酬を獲得．
+        #         reward += 10
+        #         # 転送成功カウンタを1加算．
+        #         transmitted_count = 1
+        #     else:
+        #         # 帯域幅よりも大きいパケットを送ろうとした場合には負の報酬を獲得．
+        #         reward -= 5
+        # elif action is not None:
+        #      reward -= 20 # 無効なアクションに対する報酬．
 
         # すべての処理が終わった後の，新バッファの状態を数値リストに変換．
-        next_state = self._get_state()
+        # next_state = self._get_state()
         # 終了したらTrueを返すが，この環境では通常終了しない．
-        done = False
+        # done = False
         # このステップで発生したイベントの統計を辞書に保存．
         stats = {
-            "generated": generated_count, "transmitted": transmitted_count,
-            "expired": expired_count, "dropped": dropped_count
+            "generated": generated_count, "expired": expired_count, "dropped": dropped_count
         }
-        return next_state, reward, done, stats
+        return expired_reward, stats
     
     
 
