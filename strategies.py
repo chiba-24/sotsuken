@@ -1,6 +1,5 @@
 """ 転送するパケットを選択する戦略 (Shortest TTL First) """
 class ShortestTtlFirstStrategy:
-
     def select_packet(self, buffer):
         if not buffer:
             return None

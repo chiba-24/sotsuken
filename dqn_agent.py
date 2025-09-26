@@ -57,8 +57,8 @@ class QNetwork(nn.Module):
         self.network = nn.Sequential(*layers)
 
         # 入力データxをself.networkに渡すだけで，nn.Sequentialが自動的にリストの先頭から順番に層を適用して最終的な計算結果を返す
-        def forward(self, x):
-            return self.network(x)
+    def forward(self, x):
+        return self.network(x)
 
     #     # 結合層を定義．
     #     # nn.Linear：データを分析して重みを学習する線形層．

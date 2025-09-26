@@ -1,11 +1,11 @@
 import random
-from config import ConfigA
+from config import DqnTrainConfig, ConfigA
 from simulation_env import Node # 統一されたNodeクラスをインポート
 from strategies import ShortestTtlFirstStrategy, FifoStrategy
 
 def run_simulation(config, strategy_class, title_prefix):
     strategy = strategy_class()
-    env = Node(config=config) # 環境としてNodeを初期化
+    env = Node(config = config) # 環境としてNodeを初期化
 
     title = f"{title_prefix} - {config.NAME}"
     stats = {"generated": 0, "transmitted": 0, "expired": 0, "dropped": 0}
@@ -40,7 +40,7 @@ def run_simulation(config, strategy_class, title_prefix):
         print(f"転送成功率: {success_rate:.2f}%")
 
 if __name__ == "__main__":
-    config_to_run = ConfigA()
+    config_to_run = DqnTrainConfig()
     run_simulation(config = config_to_run,
                    strategy_class = ShortestTtlFirstStrategy,
                    title_prefix = "最小TTL優先戦略")

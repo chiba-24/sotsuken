@@ -2,6 +2,7 @@ from collections import deque
 import random
 from collections import deque
 import numpy as np
+import math
 
 class DataPacket:
     def __init__(self, packet_id, size, ttl):
@@ -47,25 +48,35 @@ class Node:
 
     """ シミュレーション環境を初期化 """
     def reset(self):
+        # ノードのバッファリストを初期化
         self.buffer.clear()
+        # パケットのIDカウンタを初期化
         self.packet_id_counter = 0
+        # バッファリストをNNが読み込める数値リストに変換
         return self._get_state()
 
+    """ エージェントから行動を受け取り，時間が1ステップ進んだ時の環境の変化を計算 """
     def step(self, action):
+        # 生存ペナルティとして，行動するたびに報酬を減少．
         reward = -1
+        # 各カウンタを初期化
         generated_count = 0
         transmitted_count = 0
         expired_count = 0
         dropped_count = 0
 
-        # 1. 新しいパケットの到着
+        # 1. 新規パケットの到来．
+        # 0~最大数の間でランダムに決定．
         num_new_packets = random.randint(0, self.config.MAX_PACKETS_PER_STEP)
+        # ランダムなサイズとTTLを持つ新規パケットを生成．IDと生成カウンタを1加算．
         for _ in range(num_new_packets):
             size = random.randint(*self.config.PACKET_SIZE_RANGE)
             ttl = random.randint(*self.config.PACKET_TTL_RANGE)
             new_packet = DataPacket(self.packet_id_counter, size, ttl)
             self.packet_id_counter += 1
             generated_count += 1
+
+            # バッファが満杯ならパケットを破棄
             if len(self.buffer) < self.config.BUFFER_PACKET_LIMIT:
                 self.buffer.append(new_packet)
             else:
@@ -73,26 +84,40 @@ class Node:
         
         # 2. TTLの減少と期限切れの確認
         for packet in list(self.buffer):
+            # TTLを減少
             packet.ttl -= 1
             if packet.ttl <= 0:
+                # TTLが0以下のパケットは破棄して，破棄カウンタを1加算．
                 self.buffer.remove(packet)
                 expired_count += 1
+        # パケット損失数に応じて，報酬を大きく減少．
         reward -= expired_count * 100
 
         # 3. 指定されたactionを処理
+        # エージェントが選択した行動（転送したいパケットのインデックス）が，
+        # 現在のバッファリストに存在するか確認．
         if action is not None and 0 <= action < len(self.buffer):
+            # 指定されたパケットを取り出す．
             packet_to_send = self.buffer[action]
+            # 転送したいパケットのサイズが，ノードの転送能力以下であるかを確認．
             if packet_to_send.size <= self.config.NODE_BANDWIDTH:
+                # 転送可能ならパケットをバッファから削除．
                 self.buffer.remove(packet_to_send)
+                # 正の報酬を獲得．
                 reward += 10
+                # 転送成功カウンタを1加算．
                 transmitted_count = 1
             else:
+                # 帯域幅よりも大きいパケットを送ろうとした場合には負の報酬を獲得．
                 reward -= 5
         elif action is not None:
-             reward -= 20 # 無効なアクション
+             reward -= 20 # 無効なアクションに対する報酬．
 
+        # すべての処理が終わった後の，新バッファの状態を数値リストに変換．
         next_state = self._get_state()
+        # 終了したらTrueを返すが，この環境では通常終了しない．
         done = False
+        # このステップで発生したイベントの統計を辞書に保存．
         stats = {
             "generated": generated_count, "transmitted": transmitted_count,
             "expired": expired_count, "dropped": dropped_count

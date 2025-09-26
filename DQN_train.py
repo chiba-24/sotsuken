@@ -3,12 +3,14 @@ import numpy as np
 
 from config import DqnTrainConfig, ConfigA
 from simulation_env import Node
-from dqn_agent import DqnAgent
+from DQN_agent import DqnAgent
 
 def evaluate_agent(agent, env, eval_steps = 10000):
     """学習済みエージェントの性能を評価"""
     print("\n--- エージェントの性能評価開始 ---")
     
+    env = Node(DqnTrainConfig)
+
     # カウンタの初期化
     total_generated = 0
     total_transmitted = 0
@@ -92,10 +94,21 @@ def train_dqn():
             print(f"ステップ: {step}/{config.SIMULATION_STEPS}, 平均報酬(直近1000): {avg_reward:.2f}")
 
     print("--- 学習終了 ---")
+    return agent
 
     # 学習が終わったら評価関数を呼び出す
-    evaluate_agent(agent, Node(ConfigA()))
-
+    evaluate_agent(agent, env)
 
 if __name__ == "__main__":
-    train_dqn()
+    # 1. DQNエージェントを訓練する
+    trained_agent = train_dqn()
+
+    # 2. 比較対象と同じテストシナリオ(ConfigA)を準備する
+    test_config = ConfigA()
+
+    # 3. 訓練済みエージェントを、テストシナリオで評価する
+    evaluate_agent(trained_agent, test_config)
+
+
+# if __name__ == "__main__":
+#     train_dqn()
